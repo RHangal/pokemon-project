@@ -34,6 +34,8 @@ CREATE TABLE pokemon (
     ev_yield_total INT
 );
 
+ALTER TABLE pokemon ADD COLUMN sprite_path TEXT;
+
 
 
 
