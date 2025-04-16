@@ -1,10 +1,39 @@
 CREATE OR REPLACE VIEW pokemon_competitive_factors_view AS
-SELECT
-    p.pokemon_id,
+WITH type_data AS (
+    SELECT 
+        pokemon_id,
+        MAX(CASE WHEN slot = 'primary' THEN pt.type END) AS primary_type,
+        MAX(CASE WHEN slot = 'secondary' THEN pt.type END) AS secondary_type
+    FROM pokemon_types_junction tj
+    LEFT JOIN pokemon_types pt ON tj.type_id = pt.id
+    GROUP BY pokemon_id
+),
+ability_data AS (
+    SELECT 
+        pokemon_id,
+        MAX(CASE WHEN slot = 'primary' THEN pa.name END) AS primary_ability,
+        MAX(CASE WHEN slot = 'secondary' THEN pa.name END) AS secondary_ability,
+        MAX(CASE WHEN slot = 'hidden' THEN pa.name END) AS hidden_ability,
+        MAX(CASE WHEN slot = 'event' THEN pa.name END) AS event_ability
+    FROM pokemon_abilities_junction aj
+    LEFT JOIN pokemon_ability pa ON aj.ability_id = pa.id
+    GROUP BY pokemon_id
+)
+
+SELECT 
+    u.pokemon_id,
+    p.pokemon_id AS true_pokemon_id,
     p.pokemon_name,
     p.alternate_form_name,
 
-    -- Base stats
+    -- Label like "Charizard (Gmax)"
+    CASE 
+        WHEN p.alternate_form_name IS NOT NULL 
+        THEN CONCAT(p.pokemon_name, ' (', p.alternate_form_name, ')')
+        ELSE p.pokemon_name
+    END AS label,
+
+    -- Base Stats
     p.health_stat,
     p.attack_stat,
     p.defense_stat,
@@ -13,7 +42,7 @@ SELECT
     p.speed_stat,
     p.base_stat_total,
 
-    -- Competitive usage
+    -- Competitive Usage
     u.smogon_vgc_usage_2022,
     u.smogon_vgc_usage_2023,
     u.smogon_vgc_usage_2024,
@@ -21,40 +50,19 @@ SELECT
     u.worlds_vgc_usage_2023,
     u.worlds_vgc_usage_2024,
 
-    -- Types
-    pt_primary.type AS primary_type,
-    pt_secondary.type AS secondary_type,
-
-    -- Abilities
-    pa_primary.name AS primary_ability,
-    pa_secondary.name AS secondary_ability,
-    pa_hidden.name AS hidden_ability,
-    pa_event.name AS event_ability
+    -- Types and Abilities
+    td.primary_type,
+    td.secondary_type,
+    ad.primary_ability,
+    ad.secondary_ability,
+    ad.hidden_ability,
+    ad.event_ability
 
 FROM pokemon_competitive_usage u
-JOIN pokemon p ON u.pokemon_id = p.pokemon_id
+JOIN pokemon p ON u.pokemon_id = p.id
+LEFT JOIN type_data td ON td.pokemon_id = p.pokemon_id
+LEFT JOIN ability_data ad ON ad.pokemon_id = p.pokemon_id;
 
--- Join for types
-LEFT JOIN pokemon_types_junction ptj1
-    ON ptj1.pokemon_id = p.pokemon_id AND ptj1.slot = 'primary'
-LEFT JOIN pokemon_types_junction ptj2
-    ON ptj2.pokemon_id = p.pokemon_id AND ptj2.slot = 'secondary'
-LEFT JOIN pokemon_types pt_primary ON pt_primary.id = ptj1.type_id
-LEFT JOIN pokemon_types pt_secondary ON pt_secondary.id = ptj2.type_id
 
--- Join for abilities
-LEFT JOIN pokemon_abilities_junction paj1
-    ON paj1.pokemon_id = p.pokemon_id AND paj1.slot = 'primary'
-LEFT JOIN pokemon_abilities_junction paj2
-    ON paj2.pokemon_id = p.pokemon_id AND paj2.slot = 'secondary'
-LEFT JOIN pokemon_abilities_junction paj3
-    ON paj3.pokemon_id = p.pokemon_id AND paj3.slot = 'hidden'
-LEFT JOIN pokemon_abilities_junction paj4
-    ON paj4.pokemon_id = p.pokemon_id AND paj4.slot = 'event'
 
-LEFT JOIN pokemon_ability pa_primary ON pa_primary.id = paj1.ability_id
-LEFT JOIN pokemon_ability pa_secondary ON pa_secondary.id = paj2.ability_id
-LEFT JOIN pokemon_ability pa_hidden ON pa_hidden.id = paj3.ability_id
-LEFT JOIN pokemon_ability pa_event ON pa_event.id = paj4.ability_id
 
-ORDER BY p.pokemon_id;
