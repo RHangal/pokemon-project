@@ -22,7 +22,7 @@ ability_data AS (
 
 SELECT 
     u.pokemon_id,
-    p.pokemon_id AS true_pokemon_id,
+    p.pokemon_id AS true_pokemon_id,  -- optional: this is the national dex id
     p.pokemon_name,
     p.alternate_form_name,
 
@@ -60,9 +60,7 @@ SELECT
 
 FROM pokemon_competitive_usage u
 JOIN pokemon p ON u.pokemon_id = p.id
-LEFT JOIN type_data td ON td.pokemon_id = p.pokemon_id
-LEFT JOIN ability_data ad ON ad.pokemon_id = p.pokemon_id;
-
-
+LEFT JOIN type_data td ON td.pokemon_id = p.id
+LEFT JOIN ability_data ad ON ad.pokemon_id = p.id;
 
 

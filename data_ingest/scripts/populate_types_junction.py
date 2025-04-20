@@ -46,8 +46,24 @@ type_map = {t.lower(): id for id, t in cur.fetchall()}
 
 # === Insert into junction table ===
 for _, row in df.iterrows():
-    pokemon_id = int(row['pokemon_id'])
-    name = row.get('pokemon_name', '').lower()
+    name = row.get('pokemon_name', '').strip().lower()
+    form = row.get('alternate_form_name', None)
+    form = form.strip().lower() if pd.notna(form) else None
+
+    # Find the correct pokemon.id from the DB
+    cur.execute("""
+        SELECT id FROM pokemon
+        WHERE LOWER(pokemon_name) = %s AND 
+              (alternate_form_name IS NULL AND %s IS NULL OR LOWER(alternate_form_name) = %s)
+        LIMIT 1;
+    """, (name, form, form))
+    result = cur.fetchone()
+
+    if not result:
+        print(f"❌ Couldn't find Pokémon ID for: {name} ({form})")
+        continue
+
+    pokemon_id = result[0]
 
     for slot in ['primary', 'secondary']:
         col = f'{slot}_type'
@@ -65,15 +81,14 @@ for _, row in df.iterrows():
                         ON CONFLICT DO NOTHING;
                     """, (pokemon_id, type_id, slot))
 
-                    # 🔍 Print info if it's Flutter Mane or Incineroar
                     if name in ['flutter mane', 'incineroar']:
                         print(f"🔎 [{name.title()}] - Linked to type '{clean_type}' (slot: {slot}, id: {type_id})")
-
                 except Exception as e:
-                    print(f"❌ Failed to link {name} to {type_name} ({slot}): {e}")
+                    print(f"❌ Failed to link {name} to {clean_type} ({slot}): {e}")
                     raise e
             else:
-                print(f"⚠️ Type '{type_name}' not found in DB for {name}")
+                print(f"⚠️ Type '{clean_type}' not found in DB for {name}")
+
 
 
 conn.commit()

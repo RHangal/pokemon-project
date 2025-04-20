@@ -1,3 +1,5 @@
+-- Create core pokemon table
+DROP TABLE IF EXISTS pokemon CASCADE;
 CREATE TABLE pokemon (
     id SERIAL PRIMARY KEY,
     pokemon_id INT UNIQUE,
@@ -8,7 +10,7 @@ CREATE TABLE pokemon (
     pre_evolution_pokemon_id INT,
     evolution_details TEXT,
 
-    -- Foreign keys
+    -- Foreign key relationships
     game_id INT REFERENCES pokemon_games(id),
     catch_rate_id INT REFERENCES pokemon_catch_rate(id),
     base_happiness_id INT REFERENCES pokemon_happiness(id),
@@ -31,11 +33,8 @@ CREATE TABLE pokemon (
     special_attack_ev INT,
     special_defense_ev INT,
     speed_ev INT,
-    ev_yield_total INT
+    ev_yield_total INT,
+
+    -- Sprite
+    sprite_path TEXT
 );
-
-ALTER TABLE pokemon ADD COLUMN sprite_path TEXT;
-
-
-
-
