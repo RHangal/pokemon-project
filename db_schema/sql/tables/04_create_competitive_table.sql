@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS pokemon_competitive_usage CASCADE
+DROP TABLE IF EXISTS pokemon_competitive_usage CASCADE;
 CREATE TABLE pokemon_competitive_usage (
     id SERIAL PRIMARY KEY,
     pokemon_id INT NOT NULL REFERENCES pokemon(id),
