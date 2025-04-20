@@ -1,20 +1,8 @@
-import os
 import pandas as pd
-import psycopg2
-from dotenv import load_dotenv
-
-# === Load environment variables ===
-load_dotenv()
-
-CSV_PATH = os.getenv("CSV_PATH")
-DB_NAME = os.getenv("DB_NAME")
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
+from scripts.utils.db_utils import get_db_connection, get_csv_path
 
 # === Load and clean CSV ===
-df = pd.read_csv(CSV_PATH)
+df = pd.read_csv(get_csv_path("pokemon_database.csv"))
 df.columns = (
     df.columns
     .str.strip()
@@ -22,75 +10,77 @@ df.columns = (
     .str.replace(" ", "_")
     .str.replace("-", "_")
 )
-
-# Strip quotes and whitespace from string fields
 df = df.applymap(lambda x: x.strip(' "\'') if isinstance(x, str) else x)
 
-# === Connect to PostgreSQL ===
-conn = psycopg2.connect(
-    dbname=DB_NAME,
-    user=DB_USER,
-    password=DB_PASSWORD,
-    host=DB_HOST,
-    port=DB_PORT
-)
-cur = conn.cursor()
+# === Slot labels for type columns ===
+type_slots = ['primary', 'secondary']
 
-# === Build lowercase type name → id lookup map from DB ===
-cur.execute("SELECT id, type FROM pokemon_types;")
-type_map = {t.lower(): id for id, t in cur.fetchall()}
+def main():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("BEGIN;")
 
-# === Clear existing entries for a clean reset (optional)
-# ⚠️ Uncomment this if you're resetting the table
-# cur.execute("DELETE FROM pokemon_types_junction;")
+        # Build type name → id lookup map
+        cur.execute("SELECT id, type FROM pokemon_types;")
+        type_map = {t.lower(): id for id, t in cur.fetchall()}
 
-# === Insert into junction table ===
-for _, row in df.iterrows():
-    name = row.get('pokemon_name', '').strip().lower()
-    form = row.get('alternate_form_name', None)
-    form = form.strip().lower() if pd.notna(form) else None
+        for _, row in df.iterrows():
+            name = row.get('pokemon_name', '').strip().lower()
+            form = row.get('alternate_form_name', None)
+            form = form.strip().lower() if pd.notna(form) else None
 
-    # Find the correct pokemon.id from the DB
-    cur.execute("""
-        SELECT id FROM pokemon
-        WHERE LOWER(pokemon_name) = %s AND 
-              (alternate_form_name IS NULL AND %s IS NULL OR LOWER(alternate_form_name) = %s)
-        LIMIT 1;
-    """, (name, form, form))
-    result = cur.fetchone()
+            # Get correct Pokémon ID
+            cur.execute("""
+                SELECT id FROM pokemon
+                WHERE LOWER(pokemon_name) = %s AND 
+                      (alternate_form_name IS NULL AND %s IS NULL OR LOWER(alternate_form_name) = %s)
+                LIMIT 1;
+            """, (name, form, form))
+            result = cur.fetchone()
 
-    if not result:
-        print(f"❌ Couldn't find Pokémon ID for: {name} ({form})")
-        continue
+            if not result:
+                print(f"❌ Couldn't find Pokémon ID for: {name} ({form})")
+                continue
 
-    pokemon_id = result[0]
+            pokemon_id = result[0]
 
-    for slot in ['primary', 'secondary']:
-        col = f'{slot}_type'
-        type_name = row.get(col)
+            for slot in type_slots:
+                type_val = row.get(f"{slot}_type")
+                if pd.notna(type_val) and isinstance(type_val, str):
+                    clean_type = type_val.strip().lower()
+                    type_id = type_map.get(clean_type)
 
-        if pd.notna(type_name) and isinstance(type_name, str):
-            clean_type = type_name.strip().lower()
-            type_id = type_map.get(clean_type)
+                    if type_id:
+                        try:
+                            cur.execute("""
+                                INSERT INTO pokemon_types_junction (pokemon_id, type_id, slot)
+                                VALUES (%s, %s, %s)
+                                ON CONFLICT DO NOTHING;
+                            """, (pokemon_id, type_id, slot))
 
-            if type_id:
-                try:
-                    cur.execute("""
-                        INSERT INTO pokemon_types_junction (pokemon_id, type_id, slot)
-                        VALUES (%s, %s, %s)
-                        ON CONFLICT DO NOTHING;
-                    """, (pokemon_id, type_id, slot))
+                            if name in ['flutter mane', 'incineroar']:
+                                print(f"🔎 [{name.title()}] - Linked to type '{clean_type}' (slot: {slot})")
+                        except Exception as e:
+                            print(f"❌ Failed to link {name} to {clean_type} ({slot}): {e}")
+                            raise e
+                    else:
+                        print(f"⚠️ Type '{clean_type}' not found in DB for {name}")
 
-                    if name in ['flutter mane', 'incineroar']:
-                        print(f"🔎 [{name.title()}] - Linked to type '{clean_type}' (slot: {slot}, id: {type_id})")
-                except Exception as e:
-                    print(f"❌ Failed to link {name} to {clean_type} ({slot}): {e}")
-                    raise e
-            else:
-                print(f"⚠️ Type '{clean_type}' not found in DB for {name}")
+        conn.commit()
+        print("✅ Pokémon types junctions inserted successfully.")
 
+    except Exception as e:
+        if conn:
+            conn.rollback()
+            print("⚠️ Rolled back due to error.")
+        raise
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+        print("🔒 Connection closed.")
 
-
-conn.commit()
-cur.close()
-conn.close()
+if __name__ == "__main__":
+    main()

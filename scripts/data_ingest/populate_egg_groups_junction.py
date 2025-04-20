@@ -1,20 +1,8 @@
-import os
 import pandas as pd
-import psycopg2
-from dotenv import load_dotenv
-
-# === Load environment variables ===
-load_dotenv()
-
-CSV_PATH = os.getenv("CSV_PATH")
-DB_NAME = os.getenv("DB_NAME")
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
+from scripts.utils.db_utils import get_db_connection, get_csv_path
 
 # === Load and clean the CSV ===
-df = pd.read_csv(CSV_PATH)
+df = pd.read_csv(get_csv_path("pokemon_database.csv"))
 df.columns = (
     df.columns
     .str.strip()
@@ -24,71 +12,80 @@ df.columns = (
 )
 df = df.applymap(lambda x: x.strip(' "\'') if isinstance(x, str) else x)
 
-# === Connect to PostgreSQL ===
-conn = psycopg2.connect(
-    dbname=DB_NAME,
-    user=DB_USER,
-    password=DB_PASSWORD,
-    host=DB_HOST,
-    port=DB_PORT
-)
-cur = conn.cursor()
-
-# === Build egg group name → ID map ===
-cur.execute("SELECT id, name FROM pokemon_egg_groups;")
-egg_group_map = {name.lower(): id for id, name in cur.fetchall()}
-
-# === Define slot columns from CSV ===
+# === Define egg group slots in CSV ===
 slot_columns = {
     'primary': 'primary_egg_group',
     'secondary': 'secondary_egg_group'
 }
 
-# === Insert into junction table ===
-for _, row in df.iterrows():
-    name = row.get('pokemon_name', '').strip().lower()
-    form = row.get('alternate_form_name', None)
-    form = form.strip().lower() if pd.notna(form) else None
+def main():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("BEGIN;")
 
-    # Find the correct pokemon.id from DB
-    cur.execute("""
-        SELECT id FROM pokemon
-        WHERE LOWER(pokemon_name) = %s AND 
-              (alternate_form_name IS NULL AND %s IS NULL OR LOWER(alternate_form_name) = %s)
-        LIMIT 1;
-    """, (name, form, form))
-    result = cur.fetchone()
+        # Build egg group → id map
+        cur.execute("SELECT id, name FROM pokemon_egg_groups;")
+        egg_group_map = {name.lower(): id for id, name in cur.fetchall()}
 
-    if not result:
-        print(f"❌ Couldn't find Pokémon ID for: {name} ({form})")
-        continue
+        for _, row in df.iterrows():
+            name = row.get('pokemon_name', '').strip().lower()
+            form = row.get('alternate_form_name', None)
+            form = form.strip().lower() if pd.notna(form) else None
 
-    pokemon_id = result[0]
+            # Resolve Pokémon ID
+            cur.execute("""
+                SELECT id FROM pokemon
+                WHERE LOWER(pokemon_name) = %s AND 
+                      (alternate_form_name IS NULL AND %s IS NULL OR LOWER(alternate_form_name) = %s)
+                LIMIT 1;
+            """, (name, form, form))
+            result = cur.fetchone()
 
-    for slot, csv_col in slot_columns.items():
-        group_name = row.get(csv_col)
+            if not result:
+                print(f"❌ Couldn't find Pokémon ID for: {name} ({form})")
+                continue
 
-        if pd.notna(group_name) and isinstance(group_name, str):
-            clean_group = group_name.strip().lower()
-            group_id = egg_group_map.get(clean_group)
+            pokemon_id = result[0]
 
-            if group_id:
-                try:
-                    cur.execute("""
-                        INSERT INTO pokemon_egg_groups_junction (pokemon_id, egg_group_id, slot)
-                        VALUES (%s, %s, %s)
-                        ON CONFLICT DO NOTHING;
-                    """, (pokemon_id, group_id, slot))
+            # Insert junction entries
+            for slot, col in slot_columns.items():
+                group_name = row.get(col)
 
-                    if name in ['flutter mane', 'incineroar']:
-                        print(f"🔎 [{name.title()}] - Linked to egg group '{clean_group}' (slot: {slot}, id: {group_id})")
+                if pd.notna(group_name) and isinstance(group_name, str):
+                    clean_group = group_name.strip().lower()
+                    group_id = egg_group_map.get(clean_group)
 
-                except Exception as e:
-                    print(f"❌ Failed to link {name} to {clean_group} ({slot}): {e}")
-                    raise e
-            else:
-                print(f"⚠️ Egg group '{clean_group}' not found in DB for {name}")
+                    if group_id:
+                        try:
+                            cur.execute("""
+                                INSERT INTO pokemon_egg_groups_junction (pokemon_id, egg_group_id, slot)
+                                VALUES (%s, %s, %s)
+                                ON CONFLICT DO NOTHING;
+                            """, (pokemon_id, group_id, slot))
 
-conn.commit()
-cur.close()
-conn.close()
+                            if name in ['flutter mane', 'incineroar']:
+                                print(f"🔎 [{name.title()}] - Linked to egg group '{clean_group}' (slot: {slot})")
+                        except Exception as e:
+                            print(f"❌ Failed to link {name} to {clean_group} ({slot}): {e}")
+                            raise e
+                    else:
+                        print(f"⚠️ Egg group '{clean_group}' not found in DB for {name}")
+
+        conn.commit()
+        print("✅ Egg group junctions inserted successfully.")
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+            print("⚠️ Rolled back due to error.")
+        raise
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+        print("🔒 Connection closed.")
+
+if __name__ == "__main__":
+    main()
