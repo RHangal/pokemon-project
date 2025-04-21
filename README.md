@@ -79,7 +79,13 @@ python3 -m setup.run_full_pipeline
 
 ### 1. Make sure you have your `.env` ready in the root directory
 
-### 2. Build the Docker image
+### 2. Make the Docker setup script executable (only needs to be done once)
+
+```bash
+chmod +x setup/docker_setup.sh
+```
+
+### 3. Build the Docker image
 
 ```bash
 bash docker_setup.sh
