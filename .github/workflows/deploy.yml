@@ -53,5 +53,5 @@ jobs:
           az containerapp update \
             --name $CONTAINER_APP \
             --resource-group $RESOURCE_GROUP \
-            --image $ACR_NAME.azurecr.io/$IMAGE_NAME:latest
-            --revision-suffix "${{ steps.tag.outputs.TAG }}"
+            --image $ACR_NAME.azurecr.io/$IMAGE_NAME:latest \
+            --revision-suffix ${{ steps.tag.outputs.TAG }}
