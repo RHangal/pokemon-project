@@ -1,18 +1,15 @@
-from fastapi import FastAPI, Depends
-from .db import get_db_connection
-import psycopg2.extras
+# api/main.py
+from fastapi import FastAPI
+from api.routes import pokemon, competitive, sql
+from api.graphql.schema import graphql_app
 
-app = FastAPI()
+app = FastAPI(title="Pokémon API")
 
-@app.get("/")
-def root():
-    return {"message": "🚀 FastAPI is live!"}
+app.include_router(pokemon.router, prefix="/pokemon", tags=["Pokémon"])
+app.include_router(competitive.router, prefix="/competitive", tags=["Competitive_Pokémon_View"])
+app.include_router(sql.router, prefix="/sql", tags=["SQL"])
 
-@app.get("/pokemon")
-def get_all_pokemon(conn = Depends(get_db_connection)):
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT id, pokemon_name, alternate_form_name, sprite_path FROM pokemon ORDER BY id LIMIT 50;")
-    results = cur.fetchall()
-    cur.close()
-    return results
+# mount GraphQL
+app.mount("/graphql", graphql_app)
+app.add_websocket_route("/graphql", graphql_app)
 
