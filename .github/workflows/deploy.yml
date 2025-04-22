@@ -44,7 +44,7 @@ jobs:
           docker build --platform linux/amd64 \
             -t $ACR_NAME.azurecr.io/$IMAGE_NAME:latest \
             -t $ACR_NAME.azurecr.io/$IMAGE_NAME:${{ steps.tag.outputs.TAG }} \
-            -f api/Dockerfile .
+            -f api/Dockerfile ./api
           docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:latest
           docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:${{ steps.tag.outputs.TAG }}
 
