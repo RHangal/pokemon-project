@@ -1,5 +1,9 @@
 name: Deploy FastAPI to Azure Container App
 
+permissions:
+  id-token: write
+  contents: read
+
 on:
   push:
     branches:
@@ -32,6 +36,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          auth-type: SERVICE_PRINCIPAL
 
       - name: 📦 Log in to Azure Container Registry
         run: az acr login --name $ACR_NAME
