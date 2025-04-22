@@ -1,9 +1,5 @@
 name: Deploy FastAPI to Azure Container App
 
-permissions:
-  id-token: write
-  contents: read
-
 on:
   push:
     branches:
@@ -11,11 +7,14 @@ on:
     paths:
       - "api/**"
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     env:
+      AZURE_AUTHORITY_HOST: https://login.microsoftonline.com # this disables OIDC fallback
       ACR_NAME: pokemonrg
       RESOURCE_GROUP: pokemon-rg
       CONTAINER_APP: pokemon-api
@@ -25,23 +24,22 @@ jobs:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v3
 
-      - name: 🕒 Generate timestamped tag
+      - name: 🕒 Generate timestamp
         id: tag
         run: echo "TAG=$(date -u +'%Y-%m-%dT%H-%M-%S')" >> "$GITHUB_OUTPUT"
 
-      - name: 🔐 Log in to Azure
+      - name: 🔐 Azure login (classic SP)
         uses: azure/login@v1.4.6
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          auth-type: SERVICE_PRINCIPAL
 
-      - name: 📦 Log in to Azure Container Registry
+      - name: 📦 Log in to ACR
         run: az acr login --name $ACR_NAME
 
-      - name: 🛠️ Build & Push Docker image (amd64) to ACR
+      - name: 🛠️ Build & Push image
         run: |
           docker build --platform linux/amd64 \
             -t $ACR_NAME.azurecr.io/$IMAGE_NAME:latest \
@@ -50,7 +48,7 @@ jobs:
           docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:latest
           docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:${{ steps.tag.outputs.TAG }}
 
-      - name: 🚀 Deploy to Azure Container App
+      - name: 🚀 Deploy to Container App
         run: |
           az containerapp update \
             --name $CONTAINER_APP \
