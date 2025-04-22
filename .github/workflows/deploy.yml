@@ -1,0 +1,53 @@
+name: Deploy FastAPI to Azure Container App
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "api/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      ACR_NAME: pokemonrg
+      RESOURCE_GROUP: pokemon-rg
+      CONTAINER_APP: pokemon-api
+      IMAGE_NAME: pokemon-api
+
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@v3
+
+      - name: 🕒 Generate timestamped tag
+        id: tag
+        run: echo "TAG=$(date -u +'%Y-%m-%dT%H-%M-%S')" >> "$GITHUB_OUTPUT"
+
+      - name: 🔐 Log in to Azure
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      - name: 📦 Log in to Azure Container Registry
+        run: az acr login --name $ACR_NAME
+
+      - name: 🛠️ Build & Push Docker image (amd64) to ACR
+        run: |
+          docker build --platform linux/amd64 \
+            -t $ACR_NAME.azurecr.io/$IMAGE_NAME:latest \
+            -t $ACR_NAME.azurecr.io/$IMAGE_NAME:${{ steps.tag.outputs.TAG }} \
+            -f api/Dockerfile .
+          docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:latest
+          docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:${{ steps.tag.outputs.TAG }}
+
+      - name: 🚀 Deploy to Azure Container App
+        run: |
+          az containerapp update \
+            --name $CONTAINER_APP \
+            --resource-group $RESOURCE_GROUP \
+            --image $ACR_NAME.azurecr.io/$IMAGE_NAME:latest
