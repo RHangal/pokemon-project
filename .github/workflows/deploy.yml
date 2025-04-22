@@ -16,9 +16,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      ACR_NAME: youracrname
-      RESOURCE_GROUP: your-resource-group
-      CONTAINER_APP: your-container-app-name
+      ACR_NAME: pokemonrg
+      RESOURCE_GROUP: pokemon-rg
+      CONTAINER_APP: pokemon-api
       IMAGE_NAME: pokemon-api
 
     steps:
