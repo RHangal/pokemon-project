@@ -8,16 +8,17 @@ on:
       - "api/**"
 
 permissions:
+  id-token: write
   contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     env:
-      AZURE_AUTHORITY_HOST: https://login.microsoftonline.com # this disables OIDC fallback
-      ACR_NAME: pokemonrg
-      RESOURCE_GROUP: pokemon-rg
-      CONTAINER_APP: pokemon-api
+      ACR_NAME: youracrname
+      RESOURCE_GROUP: your-resource-group
+      CONTAINER_APP: your-container-app-name
       IMAGE_NAME: pokemon-api
 
     steps:
@@ -28,13 +29,12 @@ jobs:
         id: tag
         run: echo "TAG=$(date -u +'%Y-%m-%dT%H-%M-%S')" >> "$GITHUB_OUTPUT"
 
-      - name: 🔐 Azure login (classic SP)
-        uses: azure/login@v1.4.6
+      - name: 🔐 Log in to Azure via OIDC
+        uses: azure/login@v1
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
       - name: 📦 Log in to ACR
         run: az acr login --name $ACR_NAME
