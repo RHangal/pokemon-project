@@ -8,6 +8,7 @@ class CompetitiveFactors(BaseModel):
     pokemon_name: str
     alternate_form_name: Optional[str] = None
     label: str
+    sprite_path: Optional[str] = None
 
     # Base Stats
     health_stat: int

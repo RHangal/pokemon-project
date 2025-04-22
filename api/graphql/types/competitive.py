@@ -8,6 +8,7 @@ class GQLCompetitiveFactors:
     true_pokemon_id: int
     pokemon_name: str
     alternate_form_name: Optional[str]
+    sprite_path: Optional[str] 
 
     label: str
     health_stat: int

@@ -1,4 +1,5 @@
-CREATE OR REPLACE VIEW pokemon_competitive_factors_view AS
+DROP VIEW IF EXISTS pokemon_competitive_factors_view;
+CREATE VIEW pokemon_competitive_factors_view AS
 WITH type_data AS (
     SELECT 
         pokemon_id,
@@ -25,6 +26,7 @@ SELECT
     p.pokemon_id AS true_pokemon_id,  -- optional: this is the national dex id
     p.pokemon_name,
     p.alternate_form_name,
+	p.sprite_path,
 
     -- Label like "Charizard (Gmax)"
     CASE 
@@ -63,4 +65,4 @@ JOIN pokemon p ON u.pokemon_id = p.id
 LEFT JOIN type_data td ON td.pokemon_id = p.id
 LEFT JOIN ability_data ad ON ad.pokemon_id = p.id;
 
-
+select * from pokemon_competitive_factors_view order by pokemon_id;
