@@ -63,3 +63,30 @@ Dependencies are listed in api/requirements.txt. The image is built using python
 CORS is enabled for all origins (\*) for now, but you may want to restrict it before production use.
 
 Database access must be publicly allowed (via Azure Portal) for container access.
+
+### 🚀 CI/CD Deployment
+
+This repository is configured for CI/CD using GitHub Actions and deploys automatically to Azure Container Apps.
+Each push to the main branch (within the api/ directory) will:
+
+Build a Docker image (linux/amd64)
+
+Push it to Azure Container Registry (ACR)
+
+Trigger a new Container App revision with a rolling update
+
+Force a revision update using a dummy env var to ensure visibility
+
+You can view the workflow logic in ./.github/workflows/deploy.yml
+
+### 🧪 API Testing (REST + GraphQL)
+
+The live FastAPI application is deployed and publicly accessible at:
+
+REST Docs (Swagger UI):
+👉 https://pokemon-api.agreeablemoss-c51e824a.westus2.azurecontainerapps.io/docs
+
+GraphQL Endpoint:
+👉 https://pokemon-api.agreeablemoss-c51e824a.westus2.azurecontainerapps.io/graphql
+
+⚠️ Note: The GraphQL endpoint is powered by Strawberry GraphQL and supports live querying based on pokemon_competitive_factors_view

@@ -23,6 +23,34 @@ This project sets up a PostgreSQL-based pipeline to ingest, normalize, and popul
 
 ---
 
+## Data Sources
+
+The data used in this project can be found within the repository inside `root/data/` but were originally retrieved from the following sources:
+
+Pokemon Dataset
+
+- https://www.kaggle.com/datasets/mrdew25/pokemon-database
+
+Pokemon Competitive Usage Smogon/Worlds VGC
+
+- https://www.kaggle.com/datasets/danielsmdev/pokemon-competitive-usage-smogon-and-vcgworlds
+
+Pokemon Games Dataset
+
+- https://www.kaggle.com/datasets/tnauguston/pokemon-games
+
+Pokemon Images
+
+- https://www.kaggle.com/datasets/vishalsubbiah/pokemon-images-and-types/data?select=images
+
+---
+
+## Entity Relation Diagram
+
+An ERD can be found inside `root/data_visualization/ERD/`
+
+---
+
 ## 📂 Directory Structure
 
 ```bash
@@ -121,3 +149,11 @@ python -m ipykernel install --user --name=pokemon_venv
 ```
 
 Then use `pokemon_venv` as your kernel.
+
+---
+
+## Grafana Dashboard
+
+A grafana dashboard has been setup for this project to provide further observability and data vizualization.
+
+- Snap Shot link: https://rohanhangal.grafana.net/dashboard/snapshot/6YMfU5cSsPgkJyBfaO51HQy8fiQ6aKX5
